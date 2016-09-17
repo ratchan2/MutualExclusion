@@ -1,10 +1,13 @@
 import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.Future;
+
 
 public class TTAS implements Callable<Integer>{
    public static volatile boolean value = false;
-   public static int csCount = 100;
+   public static int csCount = 1000000;
    public static int counter = 0;
    public static synchronized boolean getAndSet(boolean v){
 	     boolean temp = value;
@@ -13,7 +16,9 @@ public class TTAS implements Callable<Integer>{
    }
    public static void lock(){
 	   while(true){
-		   while(value);
+		   while(value){
+		//	   System.out.println("Spinning!");
+		   }
 		   if(!getAndSet(true)){
 			   return;
 		   }
@@ -21,10 +26,11 @@ public class TTAS implements Callable<Integer>{
 	
    }
    
-   public static void unlock(){
+   public static synchronized void unlock(){
 	    value = false;
    }
    public static void cs(){	
+	  // System.out.println("Got a chance!");
 	   counter++;
    }
    public Integer call(){
@@ -35,7 +41,7 @@ public class TTAS implements Callable<Integer>{
 		   unlock();
 		   count++;
 	   }
-	   System.out.println(counter);
+	   //System.out.println(counter);
 	   return new Integer(0);
    }
    
@@ -47,7 +53,17 @@ public class TTAS implements Callable<Integer>{
 	   }
 	   
 	   ForkJoinPool pool = new ForkJoinPool();
-	   pool.invokeAll(list);
+	   List<Future<Integer>> results = new ArrayList<Future<Integer>>();
+	   results = pool.invokeAll(list);
 	   
+	   boolean bDone = false;
+	   while(!bDone){
+		   bDone = true;
+		   for(int i = 0; i < results.size(); i++){
+			   bDone = bDone && results.get(i).isDone();
+		   }
+	   }
+	   
+	   System.out.println(counter);
    } 
 }
