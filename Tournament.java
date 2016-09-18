@@ -1,3 +1,6 @@
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.nio.file.StandardOpenOption;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.Callable;
@@ -6,8 +9,8 @@ import java.util.concurrent.Future;
 class TreeLock{
 	public static int n;
 	public static int height;
-	public static boolean[][] flags;
-	public static int victims[];
+	public volatile static boolean[][] flags;
+	public volatile static int victims[];
 	public static void init(int size){
 		n = size;
 		int levels = (int)(Math.ceil(Math.log(size)/ Math.log(2)));
@@ -26,34 +29,44 @@ class TreeLock{
 	
 }
 public class Tournament implements Callable<Integer>{
-	public static int counter;
+	public volatile static int counter = 0;
 	int addr;
 	public int leafLock = -1;
-	public int[] traceLock;
-	public int[] traceId;
-	public boolean leafLeft = false;
-	public static int csCount = 1000;
+	public volatile int[] traceLock;
+	public volatile int[] traceId;
+	public volatile boolean leafLeft = false;
+	public static int csCount = 10000;
 	public static int levels = 0;
 	public static ArrayList<Tournament> list = new ArrayList<Tournament>();
 	Tournament(int id){
 	     this.addr = id;
-	     
 	     list.add(this);
 	}
 	
 	
     public void lock(){
     	int id = 0;
-    	int locksAcquired = 0;
+         int locksAcquired = 0;
     	   if(!leafLeft){
     		   id = 1;
     	   }
-    	int currentLock = leafLock;
+    	int currentLock  = leafLock;
     	 while(locksAcquired < levels){
-    		   TreeLock.flags[currentLock][id] = true;
-    		   TreeLock.victims[currentLock] = id;
+    		  			
+    		 
+    		 TreeLock.flags[currentLock][id] = true;
+    		 TreeLock.victims[currentLock] = id;
+    		  
+               String line = "Addr: " + addr + ", Lock: " + currentLock + ", Id: " + id + ", Locks Acquired: " + locksAcquired;
+               try{
+       			Files.write(Paths.get("bin/foo.out"), (line + "\n").getBytes(), StandardOpenOption.APPEND);
+       		}
+       		catch(Exception e){
+       			System.out.println("exception");
+       		}
     		  // System.out.println(addr + "> " + currentLock + "  " + id );
     		   while(TreeLock.flags[currentLock][1 - id] && TreeLock.victims[currentLock] == id);
+    		   
     		   traceLock[locksAcquired] = currentLock;
     		   traceId[locksAcquired] = id;
     		   //Hurray I can enter next level
@@ -67,7 +80,7 @@ public class Tournament implements Callable<Integer>{
     		   {
     			   currentLock = currentLock / 2;
     		   }
-    		   
+    		   	
     	 }
     	 
     }
@@ -103,15 +116,19 @@ public class Tournament implements Callable<Integer>{
     public static void cs(){
     	counter++;
     }
+    public static synchronized int readCount(){
+    	return counter;
+    }
     public void unlock(){
-    	   for(int i = levels -1 ; i >= 0; i-- ){
+    	   for(int i = levels - 1 ; i >= 0; i-- ){
     		    TreeLock.flags[traceLock[i]][traceId[i]] = false;
     	   }
+    //	TreeLock.flags[traceLock[levels -1 ]][traceId[levels -1]] = false;
     }
 	
 	public Integer call(){
 		begin();
-		System.out.println(addr + ", counter: " + counter);
+	//	System.out.println(addr + ", counter: " + counter);
 		return new Integer(0);
 	}
 	
@@ -125,20 +142,23 @@ public class Tournament implements Callable<Integer>{
 		Tournament.assignLeafLocks(size);
 		
 		for(int i = 0; i < Tournament.list.size();i++){
-			 System.out.println(i +" , leaf: " + list.get(i).leafLock);
+		//	 System.out.println(i +" , leaf: " + list.get(i).leafLock);
 		}
 		
-		List<Callable<Integer>> list = new ArrayList<Callable<Integer>>();
-		for(int i = 0; i < Tournament.list.size(); i++){
-			list.add(Tournament.list.get(i));
-		}
+		
 		ForkJoinPool pool = new ForkJoinPool();
 	    List<Future<Integer>> results  = new ArrayList<Future<Integer>>(); 
-	    results = pool.invokeAll(list);
+	    results = pool.invokeAll(Tournament.list);
 	    
 	    boolean bResult = false;
 	    
-	 
+	    while(!bResult){
+	    	bResult = true;
+	    	for(int i = 0; i < results.size(); i++){
+	    		bResult = bResult && results.get(i).isDone();
+	    	}
+	    }
+	    System.out.println(readCount());
 	 	
 	}
 }
