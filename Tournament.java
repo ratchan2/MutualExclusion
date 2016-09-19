@@ -6,7 +6,9 @@ import java.util.List;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
-class TreeLock{
+
+public class Tournament implements Callable<Integer>{
+
 	public static int n;
 	public static int height;
 	public volatile static boolean[][] flags;
@@ -30,8 +32,7 @@ class TreeLock{
 	
 		
 	
-}
-public class Tournament implements Callable<Integer>{
+
 	public volatile static int counter = 0;
 	int addr;
 	public int leafLock = -1;
@@ -45,7 +46,10 @@ public class Tournament implements Callable<Integer>{
 	     this.addr = id;
 	     list.add(this);
 	}
-	
+	public static synchronized void setFlagAndVictim(int currentLock, int id){
+		 flags[currentLock][id] = true;
+		 victims[currentLock] = id;
+	}
 	
     public void lock(){
     	int id = 0;
@@ -58,9 +62,9 @@ public class Tournament implements Callable<Integer>{
     		  			
     		
     		 
-    		 
-    		 TreeLock.flags[currentLock][id] = true;
-    		 TreeLock.victims[currentLock] = id;
+    		 setFlagAndVictim(currentLock, id);
+    		//  flags[currentLock][id] = true;
+    		 // victims[currentLock] = id;
     		  
 //               String line = "Addr: " + addr + ", Lock: " + currentLock + ", Id: " + id + ", Locks Acquired: " + locksAcquired;
 //               try{
@@ -70,7 +74,7 @@ public class Tournament implements Callable<Integer>{
 //       			System.out.println("exception");
 //       		}
 //    		  // System.out.println(addr + "> " + currentLock + "  " + id );
-    		   while(TreeLock.flags[currentLock][1 - id] && TreeLock.victims[currentLock] == id);
+    		   while( flags[currentLock][1 - id] &&  victims[currentLock] == id);
     		   
     		   traceLock[locksAcquired] = currentLock;
     		   traceId[locksAcquired] = id;
@@ -123,9 +127,9 @@ public class Tournament implements Callable<Integer>{
     	counter++;
     }
    
-    public static void unlock(int[] traceLock, int[] traceId){
+    public static synchronized void unlock(int[] traceLock, int[] traceId){
     	   for(int i = levels - 1 ; i >= 0; i-- ){
-    		    TreeLock.flags[traceLock[i]][traceId[i]] = false;
+    		     flags[traceLock[i]][traceId[i]] = false;
     	   }
     //	TreeLock.flags[traceLock[levels -1 ]][traceId[levels -1]] = false;
     }
@@ -143,7 +147,7 @@ public class Tournament implements Callable<Integer>{
 		for(int i = 0; i < size; i++){
 			new  Tournament(i);
 		}
-		TreeLock.init(size);
+		 init(size);
 		Tournament.assignLeafLocks(size);
 		
 		for(int i = 0; i < Tournament.list.size();i++){
