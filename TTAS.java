@@ -7,7 +7,7 @@ import java.util.concurrent.Future;
 
 public class TTAS implements Callable<Integer>{
    public static volatile boolean value = false;
-   public static int csCount = 1000000;
+   public static int csCount = -1;//assigned from command line args;
    public static int counter = 0;
    public static synchronized boolean getAndSet(boolean v){
 	     boolean temp = value;
@@ -46,7 +46,8 @@ public class TTAS implements Callable<Integer>{
    }
    
    public static void main(String args[]){
-	   int size = 10;
+	   int size = Integer.parseInt(args[0]);
+	   TTAS.csCount = Integer.parseInt(args[1]);
 	   ArrayList<TTAS> list = new ArrayList<TTAS>();
 	   for(int i = 0; i < size; i++){
 		   list.add(new TTAS());
@@ -54,6 +55,8 @@ public class TTAS implements Callable<Integer>{
 	   
 	   ForkJoinPool pool = new ForkJoinPool();
 	   List<Future<Integer>> results = new ArrayList<Future<Integer>>();
+	  
+	   long startTime = System.nanoTime();
 	   results = pool.invokeAll(list);
 	   
 	   boolean bDone = false;
@@ -63,7 +66,7 @@ public class TTAS implements Callable<Integer>{
 			   bDone = bDone && results.get(i).isDone();
 		   }
 	   }
-	   
-	   System.out.println(counter);
+	   long endTime = System.nanoTime();
+	   System.out.println("Count: " + counter + ", Time: " + (endTime - startTime));
    } 
 }

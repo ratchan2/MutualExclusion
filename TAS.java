@@ -6,7 +6,7 @@ import java.util.concurrent.Future;
 
 public class TAS implements Callable<Integer>{
    public static volatile boolean value = false;
-   public static int csCount = 1000000;
+   public static int csCount = -1; //assigned via command line args;
    public static int counter = 0;
    public static synchronized boolean getAndSet(boolean v){
 	     boolean temp = value;
@@ -37,14 +37,17 @@ public class TAS implements Callable<Integer>{
    }
    
    public static void main(String args[]){
-	   int size = 10;
+	   int size = Integer.parseInt(args[0]);
+	   TAS.csCount = Integer.parseInt(args[1]);
 	   ArrayList<TAS> list = new ArrayList<TAS>();
 	   for(int i = 0; i < size; i++){
 		   list.add(new TAS());
 	   }
-	   
+	   	
 	   ForkJoinPool pool = new ForkJoinPool();
 	   List<Future<Integer>> results = new ArrayList<Future<Integer>>();
+	   
+	   long startTime = System.nanoTime();
 	   results = pool.invokeAll(list);
 	   
 	   boolean bDone = false;
@@ -54,7 +57,7 @@ public class TAS implements Callable<Integer>{
 			   bDone = bDone && results.get(i).isDone();
 		   }
 	   }
-	   
-	   System.out.println(counter);
+	   long endTime = System.nanoTime();
+	   System.out.println("Count: " + counter + ", Time: "  + (endTime - startTime));
    } 
 }

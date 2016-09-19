@@ -11,6 +11,7 @@ class TreeLock{
 	public static int height;
 	public volatile static boolean[][] flags;
 	public volatile static int victims[];
+	public volatile static int betaVictims[];
 	public static void init(int size){
 		n = size;
 		int levels = (int)(Math.ceil(Math.log(size)/ Math.log(2)));
@@ -18,6 +19,8 @@ class TreeLock{
 		height =  h.intValue();
 	    flags = new boolean[(int)(Math.pow(2, levels)) - 1][2];
 	    victims = new int[(int)(Math.pow(2, levels)) - 1];
+	    betaVictims = new int[(int)(Math.pow(2, levels)) - 1];
+	    
 	    for(int i = 0; i < (int)(Math.pow(2, levels)) - 1 ; i++){
 	    	flags[i][0] = false;
 	    	flags[i][1] = false;
@@ -35,7 +38,7 @@ public class Tournament implements Callable<Integer>{
 	public volatile int[] traceLock;
 	public volatile int[] traceId;
 	public volatile boolean leafLeft = false;
-	public static int csCount = 10000;
+	public static int csCount = -1;// assigned via command line arguments;
 	public static int levels = 0;
 	public static ArrayList<Tournament> list = new ArrayList<Tournament>();
 	Tournament(int id){
@@ -53,18 +56,20 @@ public class Tournament implements Callable<Integer>{
     	int currentLock  = leafLock;
     	 while(locksAcquired < levels){
     		  			
+    		
+    		 
     		 
     		 TreeLock.flags[currentLock][id] = true;
     		 TreeLock.victims[currentLock] = id;
     		  
-               String line = "Addr: " + addr + ", Lock: " + currentLock + ", Id: " + id + ", Locks Acquired: " + locksAcquired;
-               try{
-       			Files.write(Paths.get("bin/foo.out"), (line + "\n").getBytes(), StandardOpenOption.APPEND);
-       		}
-       		catch(Exception e){
-       			System.out.println("exception");
-       		}
-    		  // System.out.println(addr + "> " + currentLock + "  " + id );
+//               String line = "Addr: " + addr + ", Lock: " + currentLock + ", Id: " + id + ", Locks Acquired: " + locksAcquired;
+//               try{
+//       			Files.write(Paths.get("bin/foo.out"), (line + "\n").getBytes(), StandardOpenOption.APPEND);
+//       		}
+//       		catch(Exception e){
+//       			System.out.println("exception");
+//       		}
+//    		  // System.out.println(addr + "> " + currentLock + "  " + id );
     		   while(TreeLock.flags[currentLock][1 - id] && TreeLock.victims[currentLock] == id);
     		   
     		   traceLock[locksAcquired] = currentLock;
@@ -101,6 +106,7 @@ public class Tournament implements Callable<Integer>{
     			  return;
     		  }
     		  list.get(i).leafLock = leaf;
+    		  list.get(i).leafLeft = false;
     		  leaf++;
     	 }
     }
@@ -109,17 +115,15 @@ public class Tournament implements Callable<Integer>{
     	   while(count < csCount){
     		   lock();
     		   cs();
-    		   unlock();
+    		   unlock(traceLock, traceId);
     		   count++;
     	   }
     }
     public static void cs(){
     	counter++;
     }
-    public static synchronized int readCount(){
-    	return counter;
-    }
-    public void unlock(){
+   
+    public static void unlock(int[] traceLock, int[] traceId){
     	   for(int i = levels - 1 ; i >= 0; i-- ){
     		    TreeLock.flags[traceLock[i]][traceId[i]] = false;
     	   }
@@ -134,7 +138,8 @@ public class Tournament implements Callable<Integer>{
 	
 	public static void main(String args[]){
 		
-		int size = 10;
+		int size = Integer.parseInt(args[0]);
+		Tournament.csCount = Integer.parseInt(args[1]);
 		for(int i = 0; i < size; i++){
 			new  Tournament(i);
 		}
@@ -148,6 +153,9 @@ public class Tournament implements Callable<Integer>{
 		
 		ForkJoinPool pool = new ForkJoinPool();
 	    List<Future<Integer>> results  = new ArrayList<Future<Integer>>(); 
+	    
+	    
+	    long startTime = System.nanoTime();
 	    results = pool.invokeAll(Tournament.list);
 	    
 	    boolean bResult = false;
@@ -158,7 +166,9 @@ public class Tournament implements Callable<Integer>{
 	    		bResult = bResult && results.get(i).isDone();
 	    	}
 	    }
-	    System.out.println(readCount());
+	    long endTime = System.nanoTime();
+	    
+	    System.out.println("Count: " + counter + ", Time: " + (endTime - startTime));
 	 	
 	}
 }
